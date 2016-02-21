@@ -1,6 +1,10 @@
 (defpackage :asmtools
   (:use :common-lisp))
 
+(in-package :asmtools)
+
+(sb-ext:unlock-package :sb-vm)
+
 (import '(sb-assem:inst sb-vm::make-ea)) 
 
 ;; "A macro for defining delimiter read-macros"
@@ -101,6 +105,11 @@ Prints . for unreadable characters."
         (format t "~%; ****************************************************
 ~A~%" (objdump gadget))))
 
+(defun hexify ()
+  (setq *print-base* (if (= #x10 *print-base*) #xA #x10))
+  (setq *read-base* (if (= #x10 *read-base*) #xA #x10))
+  (format t "Setting *print-base* and *read-base* to #x~X, #x~X...~%"
+          *print-base* *read-base*))
         
 ;; finding gadgets:
 ;;
