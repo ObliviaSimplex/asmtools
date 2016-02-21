@@ -1,7 +1,7 @@
 (defpackage :asmtools
   (:use :common-lisp))
 
-(import '(sb-assem:inst sb-vm::make-ea)) ;; we'll use these two a lot
+(import '(sb-assem:inst sb-vm::make-ea)) 
 
 ;; "A macro for defining delimiter read-macros"
 ;; from Paul Graham's On Lisp, Ch. 17, fig. 17.4
