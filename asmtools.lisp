@@ -4,178 +4,189 @@
         :cffi))
 
 (in-package :asmtools)
+(cffi:load-foreign-library
+ #P"~/quicklisp/local-projects/asmtools/c/libhatchery.so")
+;; may need to change this, depending on where things are.
 
-#+sbcl
-(sb-ext:unlock-package :sb-vm)
+#+SBCL
+(SB-EXT:UNLOCK-PACKAGE :SB-VM)
 
-;;#+sbcl
-;;(import '(sb-assem:inst sb-vm::make-ea)) 
-
-
-
-;; "A macro for defining delimiter read-macros"
-;; from Paul Graham's On Lisp, Ch. 17, fig. 17.4
-(defmacro defdelim (left right parms &body body)
-  `(ddfn ,left ,right #'(lambda ,parms ,@body)))
-
-(let ((rpar (get-macro-character #\) )))
-  (defun ddfn (left right fn)
-    (set-macro-character right rpar)
-    (set-dispatch-macro-character #\# left
-                                  #'(lambda (stream char1 char2)
-                                      (declare (ignorable char1 char2))
-                                      (apply fn
-                                             (read-delimited-list
-                                              right stream t))))))
-
-#+sbcl
-(export 'sapify)
-#+sbcl
-(defun sapify (seq)
-  (sb-sys:vector-sap
-   (make-array (length seq)
-               :element-type '(unsigned-byte 8)
-               :initial-contents (coerce seq 'list))))
-
-;; this might or might not come in handy...
-;; #[a b c d] will be read as a system-area-pointer to bytes a b c d...
-(defdelim #\[ #\] (&rest bytes)
-  (sapify bytes))
-
-#+sbcl
-(export 'objdump)
-#+sbcl
-(defun objdump (seq &optional len)
-  "Reads a sequence of bytes, interprets them as machine-code
-instructions, and returns their disassembly as a string. Sort of like
-an in-house objdump."
-  (with-output-to-string (*standard-output*)
-    (let ((sap (sapify seq)))
-      (sb-sys:with-pinned-objects (sap)
-        (sb-disassem:disassemble-memory sap (or len (length seq)))))))
-
-(export 'characters)
-(defun characters (seq)
-  "Prints every human-readable character in the order in which it appears.
-Prints . for unreadable characters."
-  (coerce
-   (loop for byte in seq collect
-        (if (and (>= byte #x20) (< byte #x7F)) (code-char byte) #\.)) 'string))
-
-(export 'strings)
-(defun strings (seq &optional (minlen 3))
-  "Essentially the same as the Unix utility."
-  (let ((strs)
-        (tmp))
-    (loop for byte in seq do
-         (cond ((and (>= byte #x20) (< byte #x7F))
-                (push (code-char byte) tmp))
-               ((>= (length tmp) minlen)
-                (push (coerce (reverse tmp) 'string) strs)
-                (setf tmp nil))
-               (:default (setf tmp nil))))
-    (reverse strs)))
-
-(export 'load-bin)
-(defun load-bin (path)
-  ;; This can't possibly be the best way to read in a binary file, but it works.
-  (with-open-file (stream path :direction :input :element-type '(unsigned-byte 8))
-    (let ((bytes nil))
-      (loop while (car (push (read-byte stream nil nil) bytes)))
-      (reverse (cdr bytes)))))
+;;#+SBCL
+;;(IMPORT '(SB-ASSEM:INST SB-VM::MAKE-EA)) 
 
 
-(defun subupto (seq upto)
-  (subseq seq 0 (min upto (length seq))))
+
+;; "A MACRO FOR DEFINING DELIMITER READ-MACROS"
+;; FROM PAUL GRAHAM'S ON LISP, CH. 17, FIG. 17.4
+(DEFMACRO DEFDELIM (LEFT RIGHT PARMS &BODY BODY)
+  `(DDFN ,LEFT ,RIGHT #'(LAMBDA ,PARMS ,@BODY)))
+
+(LET ((RPAR (GET-MACRO-CHARACTER #\) )))
+  (DEFUN DDFN (LEFT RIGHT FN)
+    (SET-MACRO-CHARACTER RIGHT RPAR)
+    (SET-DISPATCH-MACRO-CHARACTER #\# LEFT
+                                  #'(LAMBDA (STREAM CHAR1 CHAR2)
+                                      (DECLARE (IGNORABLE CHAR1 CHAR2))
+                                      (APPLY FN
+                                             (READ-DELIMITED-LIST
+                                              RIGHT STREAM T))))))
+
+#+SBCL
+(EXPORT 'SAPIFY)
+#+SBCL
+(DEFUN SAPIFY (SEQ)
+  (SB-SYS:VECTOR-SAP
+   (MAKE-ARRAY (LENGTH SEQ)
+               :ELEMENT-TYPE '(UNSIGNED-BYTE 8)
+               :INITIAL-CONTENTS (COERCE SEQ 'LIST))))
+
+;; THIS MIGHT OR MIGHT NOT COME IN HANDY...
+;; #[A B C D] WILL BE READ AS A SYSTEM-AREA-POINTER TO BYTES A B C D...
+(DEFDELIM #\[ #\] (&REST BYTES)
+  (SAPIFY BYTES))
 
 
-;; note that gadgets% has almost exactly the same structure as strings
-;; is there some common idiom here that we could abstract into a macro?
-;; or would that just make it more complicated?
-(defparameter *x86-ret* '(#xC3))
+(EXPORT 'OBJDUMP)
+#+SBCL
+(DEFUN SBCL-OBJDUMP (SEQ &OPTIONAL LEN)
+  "READS A SEQUENCE OF BYTES, INTERPRETS THEM AS MACHINE-CODE
+INSTRUCTIONS, AND RETURNS THEIR DISASSEMBLY AS A STRING. SORT OF LIKE
+AN IN-HOUSE OBJDUMP."
+  (WITH-OUTPUT-TO-STRING (*STANDARD-OUTPUT*)
+    (LET ((SAP (SAPIFY SEQ)))
+      (SB-SYS:WITH-PINNED-OBJECTS (SAP)
+        (SB-DISASSEM:DISASSEMBLE-MEMORY SAP (OR LEN (LENGTH SEQ)))))))
 
-(export 'retp)
-(defun retp (byte)
-  (member byte *ret*))
+(DEFUN OBJDUMP (SEQ &OPTIONAL LEN)
+  (WITH-OUTPUT-TO-STRING (*STANDARD-OUTPUT*)
+    (WITH-FOREIGN-POINTER (PTR (LENGTH SEQ) SIZE)
+      (LOOP FOR BYTE IN SEQ
+         FOR I BELOW SIZE DO
+           (SETF (MEM-REF PTR :UNSIGNED-CHAR I) BYTE))
+      (SB-DISASSEM:DISASSEMBLE-MEMORY PTR (OR LEN SIZE)))))
 
-(defparameter *avoid-insts*
-  '(#x5D ;; POP RBP
+(EXPORT 'CHARACTERS)
+(DEFUN CHARACTERS (SEQ)
+  "PRINTS EVERY HUMAN-READABLE CHARACTER IN THE ORDER IN WHICH IT APPEARS.
+PRINTS . FOR UNREADABLE CHARACTERS."
+  (COERCE
+   (LOOP FOR BYTE IN SEQ COLLECT
+        (IF (AND (>= BYTE #X20) (< BYTE #X7F)) (CODE-CHAR BYTE) #\.)) 'STRING))
+
+(EXPORT 'STRINGS)
+(DEFUN STRINGS (SEQ &OPTIONAL (MINLEN 3))
+  "ESSENTIALLY THE SAME AS THE UNIX UTILITY."
+  (LET ((STRS)
+        (TMP))
+    (LOOP FOR BYTE IN SEQ DO
+         (COND ((AND (>= BYTE #X20) (< BYTE #X7F))
+                (PUSH (CODE-CHAR BYTE) TMP))
+               ((>= (LENGTH TMP) MINLEN)
+                (PUSH (COERCE (REVERSE TMP) 'STRING) STRS)
+                (SETF TMP NIL))
+               (:DEFAULT (SETF TMP NIL))))
+    (REVERSE STRS)))
+
+(EXPORT 'LOAD-BIN)
+(DEFUN LOAD-BIN (PATH)
+  ;; THIS CAN'T POSSIBLY BE THE BEST WAY TO READ IN A BINARY FILE, BUT IT WORKS.
+  (WITH-OPEN-FILE (STREAM PATH :DIRECTION :INPUT :ELEMENT-TYPE '(UNSIGNED-BYTE 8))
+    (LET ((BYTES NIL))
+      (LOOP WHILE (CAR (PUSH (READ-BYTE STREAM NIL NIL) BYTES)))
+      (REVERSE (CDR BYTES)))))
+
+
+(DEFUN SUBUPTO (SEQ UPTO)
+  (SUBSEQ SEQ 0 (MIN UPTO (LENGTH SEQ))))
+
+
+;; NOTE THAT GADGETS% HAS ALMOST EXACTLY THE SAME STRUCTURE AS STRINGS
+;; IS THERE SOME COMMON IDIOM HERE THAT WE COULD ABSTRACT INTO A MACRO?
+;; OR WOULD THAT JUST MAKE IT MORE COMPLICATED?
+(DEFPARAMETER *X86-RET* '(#XC3))
+
+(EXPORT 'RETP)
+(DEFUN RETP (BYTE)
+  (MEMBER BYTE *RET*))
+
+(DEFPARAMETER *AVOID-INSTS*
+  '(#X5D ;; POP RBP
     ))
 
-(defun gadgets% (bytes &optional (maximum-gadget-length))
-  (let ((gadgets)
-        (maxlen (or maximum-gadget-length (length bytes)))
-        (tmp))
-    (loop for byte in bytes do
-         (push byte tmp)
-         (when (retp byte)
-           (push (reverse (subupto tmp maxlen)) gadgets)
-           (setf tmp nil)))
-    (reverse gadgets)))
+(DEFUN GADGETS% (BYTES &OPTIONAL (MAXIMUM-GADGET-LENGTH))
+  (LET ((GADGETS)
+        (MAXLEN (OR MAXIMUM-GADGET-LENGTH (LENGTH BYTES)))
+        (TMP))
+    (LOOP FOR BYTE IN BYTES DO
+         (PUSH BYTE TMP)
+         (WHEN (RETP BYTE)
+           (PUSH (REVERSE (SUBUPTO TMP MAXLEN)) GADGETS)
+           (SETF TMP NIL)))
+    (REVERSE GADGETS)))
 
 
-#+sbcl
-(defun gadgets-from-file (path &optional (maximum-gadget-length 32))
-   (loop for gadget in (gadgets%  (load-bin path) maximum-gadget-length) do
-        (format t "~%; ****************************************************
-~A~%" (objdump gadget))))
+#+SBCL
+(DEFUN GADGETS-FROM-FILE (PATH &OPTIONAL (MAXIMUM-GADGET-LENGTH 32))
+   (LOOP FOR GADGET IN (GADGETS%  (LOAD-BIN PATH) MAXIMUM-GADGET-LENGTH) DO
+        (FORMAT T "~%; ****************************************************
+~A~%" (OBJDUMP GADGET))))
 
-(export 'hexify)
-(defun hexify ()
-  (setq *print-base* (if (= #x10 *print-base*) #xA #x10))
-  (setq *read-base* (if (= #x10 *read-base*) #xA #x10))
-  (format t "Setting *print-base* and *read-base* to #x~X, #x~X...~%"
-          *print-base* *read-base*))
+(EXPORT 'HEXIFY)
+(DEFUN HEXIFY ()
+  (SETQ *PRINT-BASE* (IF (= #X10 *PRINT-BASE*) #XA #X10))
+  (SETQ *READ-BASE* (IF (= #X10 *READ-BASE*) #XA #X10))
+  (FORMAT T "SETTING *PRINT-BASE* AND *READ-BASE* TO #X~X, #X~X...~%"
+          *PRINT-BASE* *READ-BASE*))
         
-;; finding gadgets:
+;; FINDING GADGETS:
 ;;
-;; gadgets to avoid:
-;; * gadgets ending with leave, followed by ret. leave performs a pop ebp.
-;; * pop ebp.
-;; -- we don't want to mess up our stack frame (probably)
+;; GADGETS TO AVOID:
+;; * GADGETS ENDING WITH LEAVE, FOLLOWED BY RET. LEAVE PERFORMS A POP EBP.
+;; * POP EBP.
+;; -- WE DON'T WANT TO MESS UP OUR STACK FRAME (PROBABLY)
 
 ;; =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-;; mucking around at the object level means we need to handle signals
-;; when something breaks
+;; MUCKING AROUND AT THE OBJECT LEVEL MEANS WE NEED TO HANDLE SIGNALS
+;; WHEN SOMETHING BREAKS
 ;; =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-;; this bit here is from Rosetta Code
+;; THIS BIT HERE IS FROM ROSETTA CODE
 
-(defvar *SIGINT*   2)
-(defvar *SIGSEGV* 11)
+(DEFVAR *SIGINT*   2)
+(DEFVAR *SIGSEGV* 11)
 
-(defmacro set-signal-handler (signo &body body)
-  (let ((handler (gensym "HANDLER")))
-    `(progn
-      (cffi:defcallback ,handler :void ((signo :int))
-        (declare (ignore signo))
-        ,@body)
-      (cffi:foreign-funcall "signal" :int ,signo :pointer
-                            (cffi:callback ,handler)))))
+(DEFMACRO SET-SIGNAL-HANDLER (SIGNO &BODY BODY)
+  (LET ((HANDLER (GENSYM "HANDLER")))
+    `(PROGN
+      (CFFI:DEFCALLBACK ,HANDLER :VOID ((SIGNO :INT))
+        (DECLARE (IGNORE SIGNO))
+        ,@BODY)
+      (CFFI:FOREIGN-FUNCALL "SIGNAL" :INT ,SIGNO :POINTER
+                            (CFFI:CALLBACK ,HANDLER)))))
 
 ;; ----------------------------------------------------------------------
 
 
 
-;; (defvar *initial* (get-internal-real-time))
+;; (DEFVAR *INITIAL* (GET-INTERNAL-REAL-TIME))
 
-;; (set-signal-handler *SIGINT*
-;;   (format t "Ran for ~a seconds~&" (/ (- (get-internal-real-time) *initial*)
-;;                                       internal-time-units-per-second)))
-  ;;  (quit))
+;; (SET-SIGNAL-HANDLER *SIGINT*
+;;   (FORMAT T "RAN FOR ~A SECONDS~&" (/ (- (GET-INTERNAL-REAL-TIME) *INITIAL*)
+;;                                       INTERNAL-TIME-UNITS-PER-SECOND)))
+  ;;  (QUIT))
 
-;; (let ((i 0))
-;;   (loop do
-;;        (format t "~a~&" (incf i))
-;;        (sleep 0.5)))
-
-
+;; (LET ((I 0))
+;;   (LOOP DO
+;;        (FORMAT T "~A~&" (INCF I))
+;;        (SLEEP 0.5)))
 
 
 
 
-;;; --- now some more portable functions: will definitely work
-;;; --- on CCL, at the very least.
+
+
+;;; --- NOW SOME MORE PORTABLE FUNCTIONS: WILL DEFINITELY WORK
+;;; --- ON CCL, AT THE VERY LEAST.
 
 ;; these are going to be architecture dependent. 
 
@@ -201,7 +212,7 @@ Prints . for unreadable characters."
 ;; 16:       4889E5           MOV RBP, RSP
 
 
-(defparameter machine-code-suffix
+(defparameter *x86_64-machine-code-suffix*
   '(#x48 #x89 #xec #x41 #x5f #x41 #x5e #x41 #x5d #x41 #x5c #x41
     #x5b #x41 #x5a #x41 #x59 #x41 #x58 #x5f #x5e #x5a #x59 #x5b #xc3))
 ;; which disassembles to
@@ -261,3 +272,14 @@ where the final type keyword specifies the return type."
                  (swap-at word 0 3)
                  (swap-at word 1 2)))
 
+(defparameter *reg-count* 18) ;; machine dependent
+(defun hatch-code (code)
+  (with-foreign-pointer (ptr (length code) size)
+    (loop for byte in code
+       for i below size do
+         (setf (mem-ref ptr :unsigned-char i) byte))
+    (let ((registers (foreign-funcall "hatch_code" :pointer ptr :pointer))
+          (rlist ()))
+      (loop for i below *reg-count* do
+           (push (mem-ref registers :long i) rlist))
+      rlist)))
