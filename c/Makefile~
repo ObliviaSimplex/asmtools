@@ -1,0 +1,19 @@
+CC = gcc
+CFLAGS = -fPIC -Wall -O0
+LDFLAGS = -shared
+
+TARGET = libhatchery.so
+SOURCES = hatchery.c
+HEADERS = hatchery.h
+OBJECTS = $(SOURCES:.c=.o)
+
+all: $(TARGET)
+
+clean:
+	echo "About to remove $(OBJECTS) $(TARGET)."
+	echo "Hit <ENTER> to continue..."
+	read
+	rm -f $(OBJECTS) $(TARGET)
+
+$(TARGET): $(OBJECTS)
+	$(CC) $(CFLAGS) 
