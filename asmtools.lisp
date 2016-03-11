@@ -8,8 +8,8 @@
 #+sbcl
 (sb-ext:unlock-package :sb-vm)
 
-#+sbcl
-(import '(sb-assem:inst sb-vm::make-ea)) 
+;;#+sbcl
+;;(import '(sb-assem:inst sb-vm::make-ea)) 
 
 
 
@@ -237,4 +237,27 @@ where the final type keyword specifies the return type."
     (unwind-protect 
           (cffi:foreign-funcall-pointer ptr () ,@types-and-args)
        (cffi:foreign-free ptr))))
+
+(defun chunky-print (opseq)
+            (loop for i on opseq by #'cddddr do
+                 (format t "~2,'0X~2,'0X~2,'0X~2,'0X~%" 
+                         (car i)
+                         (cadr i)
+                         (caddr i)
+                         (cadddr i))))
+
+
+;; handy if you cut and paste in a block of machine code
+;; from objdump, and want to get the instructions back in
+;; order.
+
+(defun swap-at (list i j)
+            (let ((tmp (elt list i)))
+              (setf (elt list i) (elt list j)
+                    (elt list j) tmp)))
+
+(defun flip-words (list)
+            (loop for word on list by #'cddddr do
+                 (swap-at word 0 3)
+                 (swap-at word 1 2)))
 
