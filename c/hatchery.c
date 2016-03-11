@@ -6,11 +6,13 @@
 #include <sys/resource.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
-#include <sys/reg.h>
+//#include <sys/reg.h> // x86 specific - just contains symbolic names
+//stored as #define clauses
 #include <sys/types.h>
 #include <stdint.h>
 #include <string.h>
 
+#include "hatchery.h"
 
 
 unsigned char * hatch_code (unsigned char *code){
@@ -19,7 +21,8 @@ unsigned char * hatch_code (unsigned char *code){
   /* This struct will be loaded by the tracer with a representation
    * of all the registers at the end of the code's execution. 
    */
-  struct user_regs_struct regs;
+  // struct user_regs_struct
+  REGISTERS regs;
   pid_t pid;
   /* fork a new process in which to run the shellcode */
   pid = fork();

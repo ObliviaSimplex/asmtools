@@ -6,17 +6,23 @@
 #include <sys/resource.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
-#include <sys/reg.h>
 #include <sys/types.h>
 #include <stdint.h>
 #include <string.h>
+
+#ifdef __x86_64__
+#include <sys/reg.h>
+#endif
+
+
 #include "hatchery.h"
 
 
 unsigned char *sc = "\x48\x31\xd2\x48\xbb\xff\x2f\x62\x69\x6e\x2f\x73\x68\x48\xc1\xeb\x08\x53\x48\x89\xe7\x48\x31\xc0\x50\x57\x48\x89\xe6\xb0\x3b\x0f\x05\x6a\x01\x5f\x6a\x3c\x58\x0f\x05";
 
 
-void print_registers(struct user_regs_struct regs){
+void print_registers(REGISTERS regs){
+  #ifdef __x86_64__
   printf("RAX: %llx\n"
          "RBX: %llx\n"
          "RCX: %llx\n"
@@ -33,6 +39,13 @@ void print_registers(struct user_regs_struct regs){
          ,regs.rdi
          ,regs.rip
          ,regs.eflags);
+#endif //__x86_64__
+  #ifdef __arm__
+  int i;
+  for (i = 0; i < 18; i++){
+    printf("R%d: %lx\n", i, regs.uregs[i]);
+  }
+#endif // __arm__
 }
 
 
@@ -52,10 +65,10 @@ int main(int argc, char **argv){
     "\xc3";        // retq  // comment out for easy segfault
   unsigned char *result;
   //  scanf("%s", input);
-  
+
   result = hatch_code(input);
   printf("You're back.\n");
-  struct user_regs_struct registers;
+  REGISTERS registers;
   memcpy(&registers, result, sizeof(registers));
   print_registers(registers);
   return 0;

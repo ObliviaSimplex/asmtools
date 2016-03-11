@@ -18,9 +18,9 @@ clean:
 	rm -f $(OBJECTS) $(TARGET) $(TEST)
 
 $(TARGET): $(OBJECTS)
+	export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:`pwd`"
 	$(CC) $(CFLAGS) $(OBJECTS) -o $@ $(LDFLAGS)
 
 $(TEST): $(TARGET) $(TESTSRC)
 	$(CC) -L `pwd` -lhatchery main.c -o test
-	export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:`pwd`"
-	./test
+	LD_LIBRARY_PATH="$LD_LIBRARY_PATH:`pwd`" ./test
