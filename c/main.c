@@ -70,6 +70,7 @@ int main(int argc, char **argv){
   printf("You're back.\n");
   REGISTERS registers;
   memcpy(&registers, result, sizeof(registers));
+  free(result);
   print_registers(registers);
   return 0;
 }
