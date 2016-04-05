@@ -16,61 +16,63 @@
 
 
 #include "hatchery.h"
+#include "example.h"
 
 
 unsigned char *sc = "\x48\x31\xd2\x48\xbb\xff\x2f\x62\x69\x6e\x2f\x73\x68\x48\xc1\xeb\x08\x53\x48\x89\xe7\x48\x31\xc0\x50\x57\x48\x89\xe6\xb0\x3b\x0f\x05\x6a\x01\x5f\x6a\x3c\x58\x0f\x05";
 
 
-void print_registers(REGISTERS regs){
+void print_registers(unsigned char *bytes){
   #ifdef __x86_64__
+  SYSCALL_REG_VEC srv;
+  memcpy(srv.bvec, bytes, sizeof(SYSCALL_REG_VEC));
   printf("RAX: %llx\n"
-         "RBX: %llx\n"
-         "RCX: %llx\n"
-         "RDX: %llx\n"
-         "RSI: %llx\n"
          "RDI: %llx\n"
-         "RIP: %llx\n"
-         "EFLAGS: %x\n"
-         ,regs.rax
-         ,regs.rbx
-         ,regs.rcx
-         ,regs.rdx
-         ,regs.rsi
-         ,regs.rdi
-         ,regs.rip
-         ,regs.eflags);
+         "RSI: %llx\n"
+         "RDX: %llx\n"
+         "R10: %llx\n"
+         "R8:  %llx\n"
+         "R9:  %llx\n"
+         ,srv.rvec[rax]
+         ,srv.rvec[rdi]
+         ,srv.rvec[rsi]
+         ,srv.rvec[rdx]
+         ,srv.rvec[r10]
+         ,srv.rvec[r8]
+         ,srv.rvec[r9]);
 #endif //__x86_64__
   #ifdef __arm__
   int i;
   for (i = 0; i < 18; i++){
-    printf("R%d: %lx\n", i, regs.uregs[i]);
+    printf("R%d: %lx\n", i, regs->uregs[i]);
   }
 #endif // __arm__
 }
 
 
+int test_code(){
+  void (*proc)() = (void(*)())example_bin;
+  proc();
+  return 1;
+}
+
+
 /* main() is just for testing purposes. */
 int main(int argc, char **argv){
-  //printf("sizeof(long) = %d\n", sizeof(long));
-  unsigned char input[0x1000] =
-
-    "\x55"// push %rbp
-    "\x48\x89\xe5" // mov %rsp,%rbp
-    "\x89\x7d\xfc" // mov %edi, -0x4(%rbp)
-    "\x89\x75\xf8" // mov %esi, -0x8(%rbp)
-    "\x8b\x55\xfc" // mov -0x4(%rbp), %edx
-    "\x8b\x45\xf8" // mov -0x8(%rbp), %eax
-    "\x01\xd0"     // add %edx, %eax
-    "\x5d"         // pop %rbp
-    "\xc3";        // retq  // comment out for easy segfault
-  unsigned char *result;
+  int i=0;
+  int result;
+  test_code();
   //  scanf("%s", input);
-
-  result = hatch_code(input);
-  printf("You're back.\n");
-  REGISTERS registers;
-  memcpy(&registers, result, sizeof(registers));
-  free(result);
-  print_registers(registers);
+  //REGISTERS *registers;
+  //printf("size of registers struct: %d bytes\n", size_of_registers());
+  //  registers = calloc(1,sizeof(REGISTERS));
+  unsigned char *res;
+  res = calloc(sizeof(SYSCALL_REG_VEC),1);
+  puts("--- REGISTERS BEFORE ---");
+  print_registers(res);
+  result = hatch_code(example_bin,res);
+  printf("You're back. Result code: %llx\n", result);
+  puts("--- REGISTERS AFTER ---");
+  print_registers(res);
   return 0;
 }
