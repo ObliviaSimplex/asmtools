@@ -62,6 +62,18 @@ int main(int argc, char **argv){
   int i=0;
   int result;
   test_code();
+
+  unsigned char somebytes[] = {255,255,255,255,
+                               255,255,255,255};
+  long long int number = bytes_to_integer(somebytes);
+  printf("number = 0x%llx\n", number);
+
+  /* unsigned char fakeseedbytes[sizeof(REGISTERS)] */
+  /*   = {1,2,3,4,5,6,7,8}; */
+
+  /* seed_registers(0,fakeseedbytes); */
+  
+  
   //  scanf("%s", input);
   //REGISTERS *registers;
   //printf("size of registers struct: %d bytes\n", size_of_registers());
@@ -70,9 +82,10 @@ int main(int argc, char **argv){
   res = calloc(sizeof(SYSCALL_REG_VEC),1);
   puts("--- REGISTERS BEFORE ---");
   print_registers(res);
-  result = hatch_code(example_bin,res);
+  result = hatch_code(example_bin,NULL,res);
   printf("You're back. Result code: %llx\n", result);
   puts("--- REGISTERS AFTER ---");
   print_registers(res);
   return 0;
 }
+

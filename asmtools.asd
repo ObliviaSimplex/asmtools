@@ -1,7 +1,8 @@
 (ql:quickload :elf)
 (ql:quickload :cffi)
+(ql:quickload :iolib)
 (defpackage #:asmtools-pkg
-  (:use :cl :asdf :cffi ))
+  (:use :cl :asdf :cffi :iolib))
 
 (in-package :asmtools-pkg)
 

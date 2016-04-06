@@ -288,18 +288,21 @@ where the final type keyword specifies the return type."
 (defun size-of-sysreg-union ()
   (foreign-funcall "size_of_sysreg_union" :int))
 
-(defun hatch-code (code)
-  (let ((reg-vec (make-shareable-byte-vector (size-of-sysreg-union))))
+(defun hatch-code (code &optional (seed nil))
+  (let ((reg-vec (make-shareable-byte-vector (size-of-sysreg-union)))
+        (seed-vec (make-shareable-byte-vector (length seed))))
     ;;(format t "reg-vec: ~A~%" reg-vec)
     (with-pointer-to-vector-data (reg-ptr reg-vec)
-      (with-pointer-to-vector-data (code-ptr (list->bytevec code))
-      (foreign-funcall "hatch_code"
-                       :pointer code-ptr
-                       :pointer reg-ptr
-                       :int)
-      (loop for bytes on (coerce reg-vec 'list)
-         by #'(lambda (x) (nthcdr 8 x)) collect
-           (elf:bytes-to-int (subseq bytes 0 8)))))))
+      (with-pointer-to-vector-data (seed-ptr seed-vec)
+        (with-pointer-to-vector-data (code-ptr (list->bytevec code))
+          (foreign-funcall "hatch_code"
+                           :pointer code-ptr
+                           :pointer seed-ptr
+                           :pointer reg-ptr
+                           :int)
+          (loop for bytes on (coerce reg-vec 'list)
+             by #'(lambda (x) (nthcdr 8 x)) collect
+               (elf:bytes-to-int (subseq bytes 0 8))))))))
 
 ;; =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 ;; using the elf package
@@ -418,6 +421,20 @@ testing."
 
 
 
+(defparameter *code-server-port* 9999)
+
+(defun dispatch-code (code &key (ip "localhost") (port "9999"))
+  (let ((code-arr (make-array (length code) ;; should already be this
+                              :element-type '(unsigned-byte 8)
+                              :initial-contents code)))
+    (with-open-socket (socket :connect :active
+                              :address-family :internet
+                              :type :stream
+                              :ipv6 :nil)
+      (connect socket (lookup-hostname ip) :port port :wait t)
+      (send-to socket code-arr)
+      (read socket))))
+                              
      
 ;; pareto? select against bad characters, e.g.
 ;;;; badchars (fatal), size (bounded), accuracy (prime impt)

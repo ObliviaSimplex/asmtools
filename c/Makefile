@@ -18,23 +18,23 @@ DUMP = xxd
 DUMPFLAGS = -i
 
 
-TARGET = libhatchery.so
-SOURCES = hatchery.c
-HEADERS = hatchery.h
+LIB = libhatchery.so
+SOURCES = hatchery.c 
+HEADERS = hatchery.h includes.h
 TEST = test
 TESTSRC = main.c example.h
 OBJECTS = $(SOURCES:.c=.o)
-
+SERVER = hatchsock
 
 
 .PHONY: dump clean dotest all
 
-all: $(TARGET) $(TEST) $(FLATBIN) $(EXAMPLE_HEADER) dotest
+all: $(LIB) $(TEST) $(FLATBIN) $(EXAMPLE_HEADER) $(SERVER)
 
 clean:
-	rm -f $(OBJECTS) $(TARGET) $(TEST) $(FLATBIN) $(ELFCODE) $(EXAMPLE_HEADER)
+	rm -f $(OBJECTS) $(LIB) $(TEST) $(FLATBIN) $(ELFCODE) $(EXAMPLE_HEADER)
 
-$(TARGET): $(OBJECTS)
+$(LIB): $(OBJECTS)
 	export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:`pwd`"
 	$(CC) $(CFLAGS) $(SOURCES) -o $@ $(LDFLAGS) $(STACKFLAGS)
 
@@ -49,9 +49,14 @@ $(EXAMPLE_HEADER): $(FLATBIN)
 	  $(DUMP) $(DUMPFLAGS) $(FLATBIN) | tee $(EXAMPLE_HEADER)
 
 
-$(TEST): $(TARGET) $(TESTSRC) $(EXAMPLE_HEADER)
+$(TEST): $(LIB) $(TESTSRC) $(EXAMPLE_HEADER)
 	$(CC) -L `pwd` -lhatchery main.c -o test $(STACKFLAGS)
+
+$(SERVER): $(LIB) $(SOURCES) $(HEADERS) hatchsock.c
+	$(CC) -L `pwd` -lhatchery hatchsock.c -o $(SERVER) $(STACKFLAGS)
 
 dotest:
 	LD_LIBRARY_PATH="$LD_LIBRARY_PATH:`pwd`" ./test
+
+
 
